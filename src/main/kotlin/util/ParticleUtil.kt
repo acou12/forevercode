@@ -1,0 +1,3 @@
+package util
+
+object ParticleUtil {}
