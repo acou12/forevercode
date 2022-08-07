@@ -1,15 +1,19 @@
 package util
 
 class Timer(val time: Long) {
-    var timeStarted = System.currentTimeMillis()
+    var timeStarted: Long = 0
 
-    fun done() = System.currentTimeMillis() - timeStarted > time
+    fun elapsed() = System.currentTimeMillis() - timeStarted
+
+    fun done() = elapsed() >= time
+
     fun reset(): Timer {
         timeStarted = System.currentTimeMillis()
         return this
     }
+
     fun finish(): Timer {
-        timeStarted = Long.MIN_VALUE
+        timeStarted = System.currentTimeMillis() - time
         return this
     }
 }

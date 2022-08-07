@@ -2,6 +2,8 @@ package heroes.ability
 
 import org.bukkit.entity.Player
 import util.ChatUtil
+import util.ChatUtil.sendGameMessage
+import util.Timer
 
 class ChargedAbility(
     val chargeDelay: Long,
@@ -11,7 +13,7 @@ class ChargedAbility(
     val ability: () -> Unit
 ) : Ability() {
     var charges = maxCharges
-    var lastCharge = 0L
+    val timer = Timer(chargeDelay)
 
     override fun use() {
         if (charges > 0) {
@@ -21,16 +23,18 @@ class ChargedAbility(
                 ChatUtil.gameMessage("You used ", name, ". You have ", charges, " more charges.")
             )
         } else {
-            player.sendMessage(ChatUtil.gameMessage("You do not have any ", name, " charges."))
+            player.sendGameMessage("You do not have any ", name, " charges.")
         }
     }
 
     override fun tick() {
-        val currentTime = System.currentTimeMillis()
-        if (charges < maxCharges && currentTime - lastCharge > chargeDelay) {
+        if (charges < maxCharges && timer.done()) {
+            timer.reset()
             charges++
-            lastCharge = currentTime
-            player.sendMessage(ChatUtil.gameMessage("You have ", "${charges} ${name}", " charges."))
+            player.sendGameMessage("You have ", "${charges} ${name}", " charges.")
+        }
+        if (charges == maxCharges) {
+            timer.reset()
         }
     }
 }

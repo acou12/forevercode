@@ -18,7 +18,7 @@ import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.potion.PotionEffect
 import org.bukkit.potion.PotionEffectType
 import org.bukkit.util.Vector
-import util.ChatUtil
+import util.ChatUtil.sendGameMessage
 
 class Assassin(player: Player) : Hero(player) {
     val teleportAbility =
@@ -105,7 +105,7 @@ class Assassin(player: Player) : Hero(player) {
         heroGuard(event.entity) { player ->
             if (event.cause == EntityDamageEvent.DamageCause.FALL) {
                 event.isCancelled = true
-                player.sendMessage(ChatUtil.gameMessage("You used ", "Roll", "."))
+                player.sendGameMessage("You used ", "Roll", ".")
             }
         }
 
@@ -113,7 +113,7 @@ class Assassin(player: Player) : Hero(player) {
     fun onArrowHit(event: EntityDamageByEntityEvent) =
         heroGuard(event.entity) { player ->
             if (event.damager is Arrow && Math.random() < 0.25) {
-                player.sendMessage(ChatUtil.gameMessage("You used", "Dodge", "."))
+                player.sendGameMessage("You used", "Dodge", ".")
             }
         }
 

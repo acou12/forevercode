@@ -3,7 +3,8 @@ package heroes.ability
 import org.bukkit.Location
 import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
-import util.ChatUtil
+import util.ChatUtil.sendGameMessage
+import util.Timer
 
 class PrepareBowAbility(
     val time: Long,
@@ -12,25 +13,22 @@ class PrepareBowAbility(
     val onHitEntity: (Entity) -> Unit,
     val onHitBlock: (Location) -> Unit
 ) : Ability() {
-    var lastUse = 0L
+    val timer = Timer(time)
     var notified = true
 
     override fun use() {
-        val currentTime = System.currentTimeMillis()
-        if (currentTime - lastUse > time) {
-            player.sendMessage(ChatUtil.gameMessage("You prepared ", name, "."))
-            lastUse = currentTime
+        if (timer.done()) {
+            timer.reset()
+            player.sendGameMessage("You prepared ", name, ".")
             PrepareManager.playerMap[player.uniqueId] =
                 PrepareManager.PreparationData(onHitEntity, onHitBlock)
-        }
+        } else player.sendMessage(AbilityUtil.getRemainingString(timer, name))
     }
 
     override fun tick() {
-        val currentTime = System.currentTimeMillis()
-        val elapsed = currentTime - lastUse
-        if (elapsed > time && !notified) {
+        if (!notified && timer.done()) {
             notified = true
-            player.sendMessage(ChatUtil.gameMessage("You can use ", name, "."))
+            player.sendGameMessage("You can use ", name, ".")
         }
     }
 }

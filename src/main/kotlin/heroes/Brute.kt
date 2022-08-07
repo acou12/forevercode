@@ -3,11 +3,13 @@ package heroes
 import heroes.ability.TimedAbility
 import kotlin.math.floor
 import kotlin.math.hypot
+import kotlin.random.Random
 import org.bukkit.Material
 import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
 import org.bukkit.util.Vector
 import util.SchedulerUtil
+import util.Timer
 
 class Brute(player: Player) : Hero(player) {
     val smashAbility =
@@ -26,9 +28,11 @@ class Brute(player: Player) : Hero(player) {
         TimedAbility(5_000, "Hop", player) {
             player.velocity = player.velocity.setY(3.0)
             hopped = true
+            hopDelay.reset()
         }
 
     var hopped = false
+    val hopDelay = Timer(2_000)
 
     override fun rightClick() {
         hopAbility.use()
@@ -41,10 +45,14 @@ class Brute(player: Player) : Hero(player) {
     override fun tick() {
         smashAbility.tick()
         hopAbility.tick()
-        if (hopped && !player.location.clone().add(0.0, -0.1, 0.0).block.type.isAir) {
+        if (
+            hopped &&
+                hopDelay.done() &&
+                !player.location.clone().add(0.0, -0.1, 0.0).block.type.isAir
+        ) {
             hopped = false
             player.fallDistance = 0.0f
-            val RADIUS = 20
+            val RADIUS = 5
             val location = player.location.clone()
             val blockPartition =
                 (-RADIUS..RADIUS)
@@ -62,21 +70,22 @@ class Brute(player: Player) : Hero(player) {
                     .filterIsInstance<LivingEntity>()
                     .groupBy { floor(it.location.distance(location)).toInt() }
                     .filterKeys { it <= RADIUS }
-            SchedulerUtil.delayedFor(2, 2 until RADIUS) {
+            SchedulerUtil.delayedFor(2, 1 until RADIUS) {
                 blockPartition[it]?.forEach { (x, z) ->
                     for (y in -3..3) {
-                        val block = location.world!!.getBlockAt(x, y, z)
+                        val block = location.block.getRelative(x, y, z)
                         val data = block.blockData
                         val type = block.type
                         block.type = Material.AIR
                         if (!type.isAir) {
                             val falling = location.world!!.spawnFallingBlock(block.location, data)
-                            falling.velocity = Vector.getRandom().setY(1)
+                            falling.velocity = Vector(0.0, Random.nextDouble(1.0, 2.0), 0.0)
                         }
                     }
                 }
                 entityPartition[it]?.forEach {
-                    it.velocity.y = 1.5
+                    it.velocity =
+                        it.location.subtract(player.location).toVector().normalize().setY(5.0)
                     it.damage(5.0)
                 }
             }
