@@ -25,6 +25,7 @@ class Main : JavaPlugin() {
 
     companion object {
         val playerHeroMap: MutableMap<Player, Hero> = mutableMapOf()
+        val playerHeroTypeMap: MutableMap<Player, HeroType> = mutableMapOf()
         data class ParticlePosition(val position: Location, val direction: Vector)
         val particleList: MutableList<ParticlePosition> = mutableListOf()
         lateinit var plugin: JavaPlugin
@@ -146,6 +147,7 @@ class Main : JavaPlugin() {
                     player.sendMessage("That hero does not exist.")
                     return false
                 }
+                playerHeroTypeMap[player] = hero
                 playerHeroMap[player] = hero.heroConstructor(player)
                 player.inventory.helmet = run {
                     val helmet = ItemStack(Material.LEATHER_HELMET)

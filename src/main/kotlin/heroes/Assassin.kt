@@ -9,13 +9,18 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
 import org.bukkit.Particle
+import org.bukkit.entity.Arrow
 import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
+import org.bukkit.event.EventHandler
+import org.bukkit.event.entity.EntityDamageByEntityEvent
+import org.bukkit.event.entity.EntityDamageEvent
 import org.bukkit.potion.PotionEffect
 import org.bukkit.potion.PotionEffectType
 import org.bukkit.util.Vector
+import util.ChatUtil
 
-class Assassin(player: Player) : Hero() {
+class Assassin(player: Player) : Hero(player) {
     val teleportAbility =
         ChargedAbility(1_000, 20, "Flash", player) {
             val originalLocation = player.location.clone()
@@ -88,9 +93,29 @@ class Assassin(player: Player) : Hero() {
         teleportAbility.tick()
         vanishAbility.tick()
         pinDownAbility.tick()
+        player.addPotionEffect(PotionEffect(PotionEffectType.SPEED, 1, 0))
     }
 
     override fun bow() {
         pinDownAbility.use()
     }
+
+    @EventHandler
+    fun onFall(event: EntityDamageEvent) =
+        heroGuard(event.entity) { player ->
+            if (event.cause == EntityDamageEvent.DamageCause.FALL) {
+                event.isCancelled = true
+                player.sendMessage(ChatUtil.gameMessage("You used ", "Roll", "."))
+            }
+        }
+
+    @EventHandler
+    fun onArrowHit(event: EntityDamageByEntityEvent) =
+        heroGuard(event.entity) { player ->
+            if (event.damager is Arrow && Math.random() < 0.25) {
+                player.sendMessage(ChatUtil.gameMessage("You used", "Dodge", "."))
+            }
+        }
+
+    override val type = HeroType.ASSASSINATOR
 }

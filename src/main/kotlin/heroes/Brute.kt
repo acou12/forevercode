@@ -1,10 +1,15 @@
 package heroes
 
 import heroes.ability.TimedAbility
+import kotlin.math.floor
+import kotlin.math.hypot
+import org.bukkit.Material
 import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
+import org.bukkit.util.Vector
+import util.SchedulerUtil
 
-class Brute(player: Player) : Hero() {
+class Brute(player: Player) : Hero(player) {
     val smashAbility =
         TimedAbility(5_000, "Smash", player) {
             player.world.entities
@@ -20,16 +25,10 @@ class Brute(player: Player) : Hero() {
     val hopAbility =
         TimedAbility(5_000, "Hop", player) {
             player.velocity = player.velocity.setY(3.0)
-            //            SchedulerUtil.delayedFor(5, 1..20) { i ->
-            //                val position =
-            // player.location.add(player.location.direction.multiply(i.toDouble()))
-            //                for (dx in -1..1) for (dy in -1..1) for (dz in -1..1) {
-            //                    position.block.getRelative(dx, dy, dz).type = Material.AIR
-            //                    position.world?.spawnParticle(Particle.EXPLOSION_LARGE, position,
-            // 1)
-            //                }
-            //            }
+            hopped = true
         }
+
+    var hopped = false
 
     override fun rightClick() {
         hopAbility.use()
@@ -42,7 +41,45 @@ class Brute(player: Player) : Hero() {
     override fun tick() {
         smashAbility.tick()
         hopAbility.tick()
+        if (hopped && !player.location.clone().add(0.0, -0.1, 0.0).block.type.isAir) {
+            hopped = false
+            player.fallDistance = 0.0f
+            val RADIUS = 20
+            val location = player.location.clone()
+            val blockPartition =
+                (-RADIUS..RADIUS)
+                    .flatMap { x -> (-RADIUS..RADIUS).map { y -> Pair(x, y) } }
+                    .groupBy { (x, y) -> floor(hypot(x.toDouble(), y.toDouble())).toInt() }
+                    .filterKeys { it <= RADIUS }
+            val entityPartition =
+                location.world!!
+                    .getNearbyEntities(
+                        location,
+                        RADIUS.toDouble(),
+                        RADIUS.toDouble(),
+                        RADIUS.toDouble()
+                    )
+                    .filterIsInstance<LivingEntity>()
+                    .groupBy { floor(it.location.distance(location)).toInt() }
+                    .filterKeys { it <= RADIUS }
+            SchedulerUtil.delayedFor(2, 2 until RADIUS) {
+                blockPartition[it]?.forEach { (x, z) ->
+                    for (y in -3..3) {
+                        val block = location.world!!.getBlockAt(x, y, z)
+                        val data = block.blockData
+                        val type = block.type
+                        block.type = Material.AIR
+                        if (!type.isAir) {
+                            val falling = location.world!!.spawnFallingBlock(block.location, data)
+                            falling.velocity = Vector.getRandom().setY(1)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     override fun bow() {}
+
+    override val type = HeroType.BRUTE
 }
