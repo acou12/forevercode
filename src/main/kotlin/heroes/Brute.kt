@@ -75,6 +75,10 @@ class Brute(player: Player) : Hero(player) {
                         }
                     }
                 }
+                entityPartition[it]?.forEach {
+                    it.velocity.y = 1.5
+                    it.damage(5.0)
+                }
             }
         }
     }

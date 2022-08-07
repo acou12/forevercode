@@ -14,12 +14,10 @@ import org.bukkit.event.Listener
 import org.bukkit.event.block.Action
 import org.bukkit.event.player.PlayerDropItemEvent
 import org.bukkit.event.player.PlayerInteractEvent
-import org.bukkit.event.player.PlayerToggleSneakEvent
 import org.bukkit.inventory.ItemStack
 import org.bukkit.inventory.meta.LeatherArmorMeta
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.util.Vector
-import util.SchedulerUtil
 
 class Main : JavaPlugin() {
 
@@ -34,27 +32,7 @@ class Main : JavaPlugin() {
     override fun onEnable() {
         plugin = this
         Bukkit.getScheduler()
-            .scheduleSyncRepeatingTask(
-                this,
-                {
-                    playerHeroMap.values.forEach(Hero::tick)
-                    playerHeroMap.keys.forEach { player ->
-                        if (player.isSneaking) {
-                            val headLocation = player.location.add(0.0, 1.2, 0.0)
-                            val particleLocation = headLocation.add(player.location.direction)
-                            player.spawnParticle(Particle.DRIP_LAVA, particleLocation, 1)
-                            particleList.add(
-                                ParticlePosition(
-                                    headLocation.clone(),
-                                    player.location.direction.clone()
-                                )
-                            )
-                        }
-                    }
-                },
-                1,
-                1
-            )
+            .scheduleSyncRepeatingTask(this, { playerHeroMap.values.forEach(Hero::tick) }, 1, 1)
         this.server.pluginManager.registerEvents(
             object : Listener {
                 @EventHandler
@@ -88,40 +66,6 @@ class Main : JavaPlugin() {
                     val hero = playerHeroMap[event.player] ?: return
                     event.isCancelled = true
                     hero.drop()
-                }
-
-                @EventHandler
-                fun shift(event: PlayerToggleSneakEvent) {
-                    if (!event.isSneaking) {
-                        val copyList = particleList.map(ParticlePosition::copy)
-                        particleList.clear()
-                        Bukkit.getScheduler()
-                            .scheduleSyncDelayedTask(
-                                this@Main,
-                                {
-                                    SchedulerUtil.delayedFor(1, copyList.indices) {
-                                        val (particlePosition, dir) = copyList[it]
-                                        SchedulerUtil.delayedFor(1, 1..20) { i ->
-                                            val position =
-                                                particlePosition
-                                                    .clone()
-                                                    .add(dir.clone().multiply(i.toDouble()))
-                                            for (dx in -1..1) for (dy in -1..1) for (dz in -1..1) {
-                                                position.block.getRelative(dx, dy, dz).type =
-                                                    Material.AIR
-
-                                                position.world?.spawnParticle(
-                                                    Particle.EXPLOSION_LARGE,
-                                                    position,
-                                                    1
-                                                )
-                                            }
-                                        }
-                                    }
-                                },
-                                40
-                            )
-                    }
                 }
             },
             this
