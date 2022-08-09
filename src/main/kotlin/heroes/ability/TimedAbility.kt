@@ -4,8 +4,7 @@ import org.bukkit.entity.Player
 import util.ChatUtil.sendGameMessage
 import util.Timer
 
-class TimedAbility(val time: Long, val name: String, val player: Player, val ability: () -> Unit) :
-    Ability() {
+abstract class TimedAbility(val time: Long, val name: String, val player: Player) : Ability() {
 
     val timer = Timer(time)
     var notified = true
@@ -25,4 +24,6 @@ class TimedAbility(val time: Long, val name: String, val player: Player, val abi
             player.sendGameMessage("You can use ", name, ".")
         }
     }
+
+    abstract fun ability()
 }

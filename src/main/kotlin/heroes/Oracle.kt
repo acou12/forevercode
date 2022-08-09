@@ -1,11 +1,11 @@
 package heroes
 
-import heroes.ability.PrepareBowAbility
-import heroes.ability.TimedAbility
+import heroes.ability.*
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Particle
 import org.bukkit.Sound
+import org.bukkit.entity.Entity
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
 import org.bukkit.event.inventory.InventoryInteractEvent
@@ -25,36 +25,68 @@ class Oracle(player: Player) : Hero(player) {
     var tethered = false
     val tetherTickTimer = Timer(1_000).finish()
 
-    val setTetherAbility =
-        TimedAbility(10_000, "Tether", player) {
-            tether = player.location
-            tethered = true
+    override val rightClickSword: Ability =
+        object : BasicAbility() {
+            override fun ability() {
+                if (tethered) {
+                    tethered = false
+                    player.fallDistance = 0.0f
+                    player.teleport(tether)
+                    player.sendMessage(
+                        ChatUtil.gameMessage("You teleported to your ", "Tether", " location.")
+                    )
+                } else {
+                    player.sendGameMessage("You have not set a ", "Tether", " location.")
+                }
+            }
         }
 
-    override fun rightClick() {
-        if (tethered) {
-            tethered = false
-            player.fallDistance = 0.0f
-            player.teleport(tether)
-            player.sendMessage(
-                ChatUtil.gameMessage("You teleported to your ", "Tether", " location.")
-            )
-        } else {
-            player.sendGameMessage("You have not set a ", "Tether", " location.")
-        }
-    }
+    override val rightClickAxe: Ability = EmptyAbility
 
-    override fun drop() {
-        setTetherAbility.use()
-    }
+    override val dropSword: Ability =
+        object : TimedAbility(1_000, "Tether", player) {
+            override fun ability() {
+                tether = player.location
+                tethered = true
+            }
+        }
+
+    override val dropAxe: Ability = EmptyAbility
+
+    override val bow: Ability =
+        object : PrepareBowAbility(1_000, "Arrow of Vision", player) {
+            override fun onHitEntity(entity: Entity) {
+                val hitPlayer = entity as? Player ?: return
+                val inventory =
+                    Bukkit.createInventory(
+                        null,
+                        InventoryType.PLAYER,
+                        "${hitPlayer.displayName}'s inventory"
+                    )
+                inventory.contents = hitPlayer.inventory.contents.clone()
+                readonlyInventory = inventory
+                player.openInventory(inventory)
+            }
+
+            override fun onHitBlock(location: Location) {
+                val prettyName =
+                    location.block.type.name.split("_").joinToString(separator = " ") { word ->
+                        word.lowercase().replaceFirstChar { c -> c.uppercase() }
+                    }
+                player.sendGameMessage(
+                    "You missed, and hit ${ChatUtil.aOrAn(prettyName)} ",
+                    prettyName,
+                    "."
+                )
+            }
+        }
 
     override fun tick() {
-        setTetherAbility.tick()
         if (tethered && tetherTickTimer.done()) {
             tetherTickTimer.reset()
-            val headLocation = player.location.add(0.0, 1.0, 0.0)
-            Util.intermediateSteps(headLocation, tether, 20).map {
-                player.world.spawnParticle(Particle.FIREWORKS_SPARK, it, 1)
+            val headLocation = player.location.add(0.0, 1.5, 0.0)
+            Util.intermediateSteps(headLocation, tether, 20).forEach {
+                player.world.spawnParticle(Particle.SCRAPE, it, 1)
             }
         }
         if (tethered && player.location.distance(tether) > MAX_TETHER_RANGE) {
@@ -72,22 +104,6 @@ class Oracle(player: Player) : Hero(player) {
 
     var readonlyInventory: Inventory? = null
 
-    val visionAbility =
-        PrepareBowAbility(
-            60_000,
-            "Arrow of Vision",
-            player,
-            {
-                if (it is Player) {
-                    val inventory = Bukkit.createInventory(null, InventoryType.PLAYER, "Readonly")
-                    inventory.contents = it.inventory.contents.clone()
-                    readonlyInventory = inventory
-                    player.openInventory(inventory)
-                }
-            },
-            {}
-        )
-
     @EventHandler
     fun inventoryInteract(event: InventoryInteractEvent) =
         heroGuard(event.whoClicked) {
@@ -95,10 +111,6 @@ class Oracle(player: Player) : Hero(player) {
                 event.isCancelled = true
             }
         }
-
-    override fun bow() {
-        visionAbility.use()
-    }
 
     override val type: HeroType = HeroType.ORACLE
 }

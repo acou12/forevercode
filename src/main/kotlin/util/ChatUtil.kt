@@ -13,5 +13,7 @@ object ChatUtil {
             .joinToString(separator = "")
     }
 
-    fun Player.sendGameMessage(vararg items: Any): Unit = this.sendMessage(gameMessage(items))
+    fun aOrAn(nextWord: String) = nextWord[0].lowercase() in listOf("e", "a", "o", "u", "i")
+
+    fun Player.sendGameMessage(vararg items: Any): Unit = this.sendMessage(gameMessage(*items))
 }

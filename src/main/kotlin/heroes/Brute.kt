@@ -1,50 +1,56 @@
 package heroes
 
+import heroes.ability.Ability
+import heroes.ability.EmptyAbility
+import heroes.ability.PrepareBowAbility
 import heroes.ability.TimedAbility
 import kotlin.math.floor
 import kotlin.math.hypot
 import kotlin.random.Random
+import org.bukkit.Location
 import org.bukkit.Material
+import org.bukkit.Particle
+import org.bukkit.entity.Entity
 import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
 import org.bukkit.util.Vector
+import util.ChatUtil
 import util.SchedulerUtil
 import util.Timer
+import util.Util
 
 class Brute(player: Player) : Hero(player) {
-    val smashAbility =
-        TimedAbility(5_000, "Smash", player) {
-            player.world.entities
-                .filterIsInstance<LivingEntity>()
-                .filter { it != player && it.location.distance(player.location) < 20 }
-                .forEach {
-                    it.velocity =
-                        it.location.subtract(player.location).toVector().normalize().setY(5.0)
-                    it.damage(5.0)
-                }
+    override val dropAxe: Ability =
+        object : TimedAbility(5_000, "Smash", player) {
+            override fun ability() {
+                player.world.entities
+                    .filterIsInstance<LivingEntity>()
+                    .filter { it != player && it.location.distance(player.location) < 20 }
+                    .forEach {
+                        it.velocity =
+                            it.location.subtract(player.location).toVector().normalize().setY(5.0)
+                        it.world.spawnParticle(Particle.BLOCK_DUST, it.location, 5)
+                        it.damage(5.0)
+                    }
+            }
         }
 
-    val hopAbility =
-        TimedAbility(5_000, "Hop", player) {
-            player.velocity = player.velocity.setY(3.0)
-            hopped = true
-            hopDelay.reset()
+    override val rightClickAxe: Ability =
+        object : TimedAbility(5_000, "Hop", player) {
+            override fun ability() {
+                player.velocity = player.velocity.setY(3.0)
+                hopped = true
+                hopDelay.reset()
+            }
         }
+
+    override val rightClickSword: Ability = EmptyAbility
+    override val dropSword: Ability = EmptyAbility
 
     var hopped = false
     val hopDelay = Timer(2_000)
 
-    override fun rightClick() {
-        hopAbility.use()
-    }
-
-    override fun drop() {
-        smashAbility.use()
-    }
-
     override fun tick() {
-        smashAbility.tick()
-        hopAbility.tick()
         if (
             hopped &&
                 hopDelay.done() &&
@@ -70,8 +76,8 @@ class Brute(player: Player) : Hero(player) {
                     .filterIsInstance<LivingEntity>()
                     .groupBy { floor(it.location.distance(location)).toInt() }
                     .filterKeys { it <= RADIUS }
-            SchedulerUtil.delayedFor(2, 1 until RADIUS) {
-                blockPartition[it]?.forEach { (x, z) ->
+            SchedulerUtil.delayedFor(2, 2 until RADIUS) { i ->
+                blockPartition[i]?.forEach { (x, z) ->
                     for (y in -3..3) {
                         val block = location.block.getRelative(x, y, z)
                         val data = block.blockData
@@ -83,16 +89,55 @@ class Brute(player: Player) : Hero(player) {
                         }
                     }
                 }
-                entityPartition[it]?.forEach {
-                    it.velocity =
-                        it.location.subtract(player.location).toVector().normalize().setY(5.0)
-                    it.damage(5.0)
+            }
+            SchedulerUtil.delayedFor(2, 0 until RADIUS) { i ->
+                entityPartition[i]?.forEach { e ->
+                    e.velocity =
+                        e.location.subtract(player.location).toVector().normalize().setY(5.0)
+                    e.damage(5.0)
+                }
+            }
+        }
+        if (shockedEntities != null && shockTimer.done()) {
+            shockTimer.reset()
+            val beforeShockedEntities = shockedEntities
+            shockedEntities =
+                shockedEntities!!
+                    .flatMap {
+                        it.getNearbyEntities(6.0, 6.0, 6.0)
+                            .filterIsInstance<LivingEntity>()
+                            .filter { other -> other.location.distance(it.location) <= 6 }
+                            .filter { e -> e !== it }
+                    }
+                    .distinct()
+            shockedEntities!!.forEach { it.damage(1.0) }
+            beforeShockedEntities!!.forEach { a ->
+                shockedEntities!!.forEach { b ->
+                    Util.intermediateSteps(a.location, b.location, 6).forEach {
+                        a.world.spawnParticle(Particle.SPELL_INSTANT, it, 1)
+                    }
                 }
             }
         }
     }
 
-    override fun bow() {}
+    var shockedEntities: List<LivingEntity>? = null
+    val shockTimer = Timer(500)
+
+    override val bow =
+        object : PrepareBowAbility(1_000, "Electric Arrow", player) {
+            override fun onHitEntity(entity: Entity) {
+                if (entity is LivingEntity) {
+                    entity.sendMessage(
+                        ChatUtil.gameMessage("You were hit by an ", "Electric Arrow", ".")
+                    )
+                    shockedEntities = listOf(entity)
+                    shockTimer.reset()
+                }
+            }
+
+            override fun onHitBlock(location: Location) {}
+        }
 
     override val type = HeroType.BRUTE
 }

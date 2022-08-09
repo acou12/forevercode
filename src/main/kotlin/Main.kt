@@ -23,7 +23,6 @@ class Main : JavaPlugin() {
 
     companion object {
         val playerHeroMap: MutableMap<Player, Hero> = mutableMapOf()
-        val playerHeroTypeMap: MutableMap<Player, HeroType> = mutableMapOf()
         data class ParticlePosition(val position: Location, val direction: Vector)
         val particleList: MutableList<ParticlePosition> = mutableListOf()
         lateinit var plugin: JavaPlugin
@@ -32,31 +31,54 @@ class Main : JavaPlugin() {
     override fun onEnable() {
         plugin = this
         Bukkit.getScheduler()
-            .scheduleSyncRepeatingTask(this, { playerHeroMap.values.forEach(Hero::tick) }, 1, 1)
+            .scheduleSyncRepeatingTask(
+                this,
+                {
+                    playerHeroMap.values.forEach { h ->
+                        h.tick()
+                        h.rightClickSword.tick()
+                        h.rightClickAxe.tick()
+                        h.dropSword.tick()
+                        h.dropAxe.tick()
+                        h.bow.tick()
+                    }
+                },
+                1,
+                1
+            )
         this.server.pluginManager.registerEvents(
             object : Listener {
                 @EventHandler
                 fun onInteract(event: PlayerInteractEvent) {
+                    // TODO: make this less boilerplatey and add
+                    //       support for more complex combinations
                     val hero = playerHeroMap[event.player]
                     if (hero != null) {
-                        if (
-                            (event.action == Action.RIGHT_CLICK_AIR ||
-                                event.action == Action.RIGHT_CLICK_BLOCK) &&
-                                event.item != null &&
-                                event.item!!.type in
-                                    listOf(
-                                        Material.IRON_AXE,
-                                        Material.IRON_SWORD,
-                                    )
-                        ) {
-                            hero.rightClick()
-                        } else if (
-                            (event.action == Action.LEFT_CLICK_AIR ||
-                                event.action == Action.LEFT_CLICK_BLOCK) &&
-                                event.item != null &&
-                                event.item!!.type in listOf(Material.BOW, Material.CROSSBOW)
-                        ) {
-                            hero.bow()
+                        when (event.action) {
+                            Action.RIGHT_CLICK_BLOCK,
+                            Action.RIGHT_CLICK_AIR -> {
+                                when (event.item?.type) {
+                                    Material.IRON_SWORD,
+                                    Material.DIAMOND_SWORD -> {
+                                        hero.rightClickSword.use()
+                                    }
+                                    Material.IRON_AXE,
+                                    Material.DIAMOND_AXE -> {
+                                        hero.rightClickAxe.use()
+                                    }
+                                    else -> {}
+                                }
+                            }
+                            Action.LEFT_CLICK_AIR,
+                            Action.LEFT_CLICK_BLOCK -> {
+                                when (event.item?.type) {
+                                    Material.BOW -> {
+                                        hero.bow.use()
+                                    }
+                                    else -> {}
+                                }
+                            }
+                            else -> {}
                         }
                     }
                 }
@@ -64,8 +86,18 @@ class Main : JavaPlugin() {
                 @EventHandler
                 fun onDrop(event: PlayerDropItemEvent) {
                     val hero = playerHeroMap[event.player] ?: return
-                    event.isCancelled = true
-                    hero.drop()
+                    event.isCancelled = true // TODO: implement a way to drop items
+                    when (event.itemDrop.itemStack.type) {
+                        Material.IRON_SWORD,
+                        Material.DIAMOND_SWORD -> {
+                            hero.dropSword.use()
+                        }
+                        Material.IRON_AXE,
+                        Material.DIAMOND_AXE -> {
+                            hero.dropAxe.use()
+                        }
+                        else -> {}
+                    }
                 }
             },
             this
@@ -86,26 +118,31 @@ class Main : JavaPlugin() {
                     HeroType.values().forEach { player.sendMessage("- ${it.name}") }
                     return false
                 }
-                val hero = HeroType.values().find { it.heroName.lowercase() == args[0].lowercase() }
-                if (hero == null) {
+                val heroType =
+                    HeroType.values().find { it.heroName.lowercase() == args[0].lowercase() }
+                if (heroType == null) {
                     player.sendMessage("That hero does not exist.")
                     return false
                 }
-                playerHeroTypeMap[player] = hero
-                playerHeroMap[player] = hero.heroConstructor(player)
-                player.inventory.helmet = run {
-                    val helmet = ItemStack(Material.LEATHER_HELMET)
+                val hero = heroType.heroConstructor(player)
+                server.pluginManager.registerEvents(hero, this)
+                playerHeroMap[player] = hero
+                fun colored(type: Material): ItemStack {
+                    val helmet = ItemStack(type)
                     val meta = helmet.itemMeta as LeatherArmorMeta
-                    meta.setColor(hero.color)
+                    meta.setColor(heroType.color)
                     helmet.itemMeta = meta
-                    helmet
+                    return helmet
                 }
-                player.inventory.chestplate = ItemStack(Material.IRON_CHESTPLATE)
-                player.inventory.leggings = ItemStack(Material.IRON_LEGGINGS)
-                player.inventory.boots = ItemStack(Material.IRON_BOOTS)
-                listOf(Material.IRON_AXE, Material.IRON_SWORD).forEach {
+                player.inventory.helmet = colored(Material.LEATHER_HELMET)
+                player.inventory.chestplate = colored(Material.LEATHER_CHESTPLATE)
+                player.inventory.leggings = colored(Material.LEATHER_LEGGINGS)
+                player.inventory.boots = colored(Material.LEATHER_BOOTS)
+                listOf(Material.IRON_AXE, Material.IRON_SWORD, Material.BOW).forEach {
                     if (!player.inventory.contains(it)) player.inventory.addItem(ItemStack(it))
                 }
+                player.inventory.remove(Material.ARROW)
+                player.inventory.addItem(ItemStack(Material.ARROW, 64))
             }
             "particleemitters" -> {
                 val player = sender as? Player ?: return false
@@ -119,7 +156,7 @@ class Main : JavaPlugin() {
                     Bukkit.getScheduler()
                         .scheduleSyncRepeatingTask(
                             this,
-                            { player.spawnParticle(particles[i], location, 5) },
+                            { player.world.spawnParticle(particles[i], location, 5) },
                             r * 20L,
                             100L,
                         )

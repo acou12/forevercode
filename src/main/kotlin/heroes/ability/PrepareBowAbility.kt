@@ -6,12 +6,10 @@ import org.bukkit.entity.Player
 import util.ChatUtil.sendGameMessage
 import util.Timer
 
-class PrepareBowAbility(
+abstract class PrepareBowAbility(
     val time: Long,
     val name: String,
     val player: Player,
-    val onHitEntity: (Entity) -> Unit,
-    val onHitBlock: (Location) -> Unit
 ) : Ability() {
     val timer = Timer(time)
     var notified = true
@@ -21,7 +19,7 @@ class PrepareBowAbility(
             timer.reset()
             player.sendGameMessage("You prepared ", name, ".")
             PrepareManager.playerMap[player.uniqueId] =
-                PrepareManager.PreparationData(onHitEntity, onHitBlock)
+                PrepareManager.PreparationData(::onHitEntity, ::onHitBlock)
         } else player.sendMessage(AbilityUtil.getRemainingString(timer, name))
     }
 
@@ -31,4 +29,6 @@ class PrepareBowAbility(
             player.sendGameMessage("You can use ", name, ".")
         }
     }
+    abstract fun onHitEntity(entity: Entity)
+    abstract fun onHitBlock(location: Location)
 }

@@ -4,14 +4,11 @@ import org.bukkit.entity.Player
 import util.ChatUtil.sendGameMessage
 import util.Timer
 
-class BuiltAbility(
+abstract class BuiltAbility(
     val time: Long,
     val maxBuildTime: Long?,
     val name: String,
     val player: Player,
-    val buildStart: () -> Unit,
-    val buildTick: () -> Unit,
-    val buildEnd: (buildTime: Long) -> Unit
 ) : Ability() {
     var prepared = false
     var using = false
@@ -37,4 +34,8 @@ class BuiltAbility(
             } else buildTick()
         }
     }
+
+    abstract fun buildStart()
+    abstract fun buildTick()
+    abstract fun buildEnd(buildTime: Long)
 }
