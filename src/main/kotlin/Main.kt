@@ -1,6 +1,7 @@
 import heroes.Hero
 import heroes.HeroType
 import heroes.ability.PrepareManager
+import heroes.unique.UniqueManager
 import org.bukkit.Bukkit
 import org.bukkit.Location
 import org.bukkit.Material
@@ -19,12 +20,12 @@ import org.bukkit.inventory.meta.LeatherArmorMeta
 import org.bukkit.plugin.java.JavaPlugin
 import org.bukkit.util.Vector
 
+// TODO: SPLIT INTO FILES
 class Main : JavaPlugin() {
 
     companion object {
         val playerHeroMap: MutableMap<Player, Hero> = mutableMapOf()
         data class ParticlePosition(val position: Location, val direction: Vector)
-        val particleList: MutableList<ParticlePosition> = mutableListOf()
         lateinit var plugin: JavaPlugin
     }
 
@@ -46,6 +47,7 @@ class Main : JavaPlugin() {
                 1,
                 1
             )
+        UniqueManager.init(this)
         this.server.pluginManager.registerEvents(
             object : Listener {
                 @EventHandler
@@ -113,7 +115,7 @@ class Main : JavaPlugin() {
     ): Boolean {
         when (command.name) {
             "equip" -> {
-                val player = sender as? Player ?: return false
+                val player = sender as? Player ?: return true
                 if (args.isEmpty()) {
                     HeroType.values().forEach { player.sendMessage("- ${it.name}") }
                     return false
@@ -145,7 +147,7 @@ class Main : JavaPlugin() {
                 player.inventory.addItem(ItemStack(Material.ARROW, 64))
             }
             "particleemitters" -> {
-                val player = sender as? Player ?: return false
+                val player = sender as? Player ?: return true
                 val particles = Particle.values()
                 val rows = 10
                 val cols = particles.size / rows + 1
@@ -166,6 +168,10 @@ class Main : JavaPlugin() {
                     state.setLine(0, particles[i].name)
                     state.update()
                 }
+            }
+            "uniques" -> {
+                val player = sender as? Player ?: return true
+                UniqueManager.uniques.forEach { player.inventory.addItem(it.createItemStack()) }
             }
         }
         return true

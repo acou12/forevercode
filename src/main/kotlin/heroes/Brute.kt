@@ -1,15 +1,13 @@
 package heroes
 
-import heroes.ability.Ability
-import heroes.ability.EmptyAbility
-import heroes.ability.PrepareBowAbility
-import heroes.ability.TimedAbility
+import heroes.ability.*
 import kotlin.math.floor
 import kotlin.math.hypot
 import kotlin.random.Random
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.Particle
+import org.bukkit.Sound
 import org.bukkit.entity.Entity
 import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
@@ -44,8 +42,43 @@ class Brute(player: Player) : Hero(player) {
             }
         }
 
-    override val rightClickSword: Ability = EmptyAbility
-    override val dropSword: Ability = EmptyAbility
+    override val rightClickSword: Ability =
+        object : BuiltAbility(5_000, 3_000, "Obliterate", player) {
+            override fun buildStart() {}
+
+            var pitch = 1f
+
+            override fun buildTick() {
+                player.playSound(player, Sound.BLOCK_NOTE_BLOCK_HARP, 1f, pitch)
+                pitch += 0.5f
+            }
+
+            override fun buildEnd(buildTime: Long) {
+                val numSteps = floor(buildTime / 100.toDouble()).toInt()
+                SchedulerUtil.delayedFor(
+                    1,
+                    Util.intermediateSteps(
+                        player.location,
+                        player.location.add(player.location.direction.multiply(numSteps)),
+                        numSteps
+                    )
+                ) { loc -> loc.world?.createExplosion(loc, 1f) }
+            }
+        }
+
+    override val dropSword: Ability =
+        object : TimedAbility(5_000, "Enclose", player) {
+            override fun ability() {
+                val location = player.location.clone()
+                SchedulerUtil.delayedFor(2, -1..3) { y ->
+                    for (x in -2..2) for (z in -2..2) {
+                        if (x == -2 || x == 2 || z == -2 || z == 2) { // borders
+                            location.block.getRelative(x, y, z).type = Material.COBBLESTONE
+                        }
+                    }
+                }
+            }
+        }
 
     var hopped = false
     val hopDelay = Timer(2_000)
@@ -98,11 +131,11 @@ class Brute(player: Player) : Hero(player) {
                 }
             }
         }
-        if (shockedEntities != null && shockTimer.done()) {
+        if (shockedEntities.isNotEmpty() && shockTimer.done()) {
             shockTimer.reset()
             val beforeShockedEntities = shockedEntities
             shockedEntities =
-                shockedEntities!!
+                shockedEntities
                     .flatMap {
                         it.getNearbyEntities(6.0, 6.0, 6.0)
                             .filterIsInstance<LivingEntity>()
@@ -110,9 +143,9 @@ class Brute(player: Player) : Hero(player) {
                             .filter { e -> e !== it }
                     }
                     .distinct()
-            shockedEntities!!.forEach { it.damage(1.0) }
-            beforeShockedEntities!!.forEach { a ->
-                shockedEntities!!.forEach { b ->
+            shockedEntities.forEach { it.damage(1.0) }
+            beforeShockedEntities.forEach { a ->
+                shockedEntities.forEach { b ->
                     Util.intermediateSteps(a.location, b.location, 6).forEach {
                         a.world.spawnParticle(Particle.SPELL_INSTANT, it, 1)
                     }
@@ -121,7 +154,7 @@ class Brute(player: Player) : Hero(player) {
         }
     }
 
-    var shockedEntities: List<LivingEntity>? = null
+    var shockedEntities: List<LivingEntity> = listOf()
     val shockTimer = Timer(500)
 
     override val bow =

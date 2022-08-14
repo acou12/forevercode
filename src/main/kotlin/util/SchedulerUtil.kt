@@ -3,7 +3,7 @@ package util
 import org.bukkit.Bukkit
 
 object SchedulerUtil {
-    fun delayedFor(ticks: Long, range: Iterable<Int>, runnable: (Int) -> Unit) {
+    fun <T> delayedFor(ticks: Long, range: Iterable<T>, runnable: (T) -> Unit) {
         if (!range.none()) {
             Bukkit.getScheduler()
                 .scheduleSyncDelayedTask(

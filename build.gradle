@@ -53,5 +53,9 @@ bukkit {
             description = "Create particles."
             usage = "/particleemitters"
         }
+        uniques {
+            description = "Add every unique to your inventory."
+            usage = "/uniques"
+        }
     }
 }

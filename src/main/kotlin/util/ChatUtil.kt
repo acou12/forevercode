@@ -13,7 +13,9 @@ object ChatUtil {
             .joinToString(separator = "")
     }
 
-    fun aOrAn(nextWord: String) = nextWord[0].lowercase() in listOf("e", "a", "o", "u", "i")
+    // todo: hour?
+    fun aOrAn(nextWord: String): String =
+        if (nextWord[0].lowercase() in listOf("e", "a", "o", "u", "i")) "an" else "a"
 
     fun Player.sendGameMessage(vararg items: Any): Unit = this.sendMessage(gameMessage(*items))
 }

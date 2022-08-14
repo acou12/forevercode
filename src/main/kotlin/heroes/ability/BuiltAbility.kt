@@ -18,6 +18,7 @@ abstract class BuiltAbility(
     override fun use() {
         if (timer.done()) {
             player.sendGameMessage("You prepared ", name, ".")
+            prepared = true
         } else player.sendMessage(AbilityUtil.getRemainingString(timer, name))
     }
 
