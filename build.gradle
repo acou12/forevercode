@@ -57,5 +57,9 @@ bukkit {
             description = "Add every unique to your inventory."
             usage = "/uniques"
         }
+       group {
+            description = "Interact with groups."
+            usage = "/group [add/join/list]"
+        }
     }
 }
